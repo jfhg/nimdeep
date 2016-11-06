@@ -24,16 +24,17 @@ proc hadamard(a,b: Matrix): Matrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = a[i, j] * b[i, j])
 
 proc `+`(a: Matrix, x: float64): Matrix =
-  makeMatrix(a.dim.rows, a.dim.columns, proc(i,j: int): float64 = x + a[i, j])
+  makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x + a[i, j])
 
 proc `-`(x: float64, a: Matrix): Matrix =
-  makeMatrix(a.dim.rows, a.dim.columns, proc(i,j: int): float64 = x - a[i, j])
+  makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x - a[i, j])
 
 proc maxIndex(a: Vector): tuple[i: int, val: float64] =
   assert(a.dim.columns == 1)
   maxIndex(a.column(0))
 
 proc normGauss: float {.inline.} = 1.46 * cos(2*PI*random(1.0)) * sqrt(-2*log10(random(1.0)))
+
 proc normalRandomMatrix(M, N: int): DMatrix64 =
   makeMatrix(M, N, proc(i, j: int): float64 = normGauss())
 
@@ -49,10 +50,9 @@ proc sigmoid_prime(z: Matrix): Matrix =
   sigmoid(z).hadamard(1.0 - sigmoid(z))
 
 proc make_network*(sizes: seq[int]): Network =
-  new(result)
-  result.sizes = sizes
-  result.biases = lc[normalRandomMatrix(sizes[i], 1) | (i <- 1..<len(sizes)), Vector]
-  result.weights = lc[normalRandomMatrix(sizes[i], sizes[i-1]) | (i <- 1..<len(sizes)), Matrix]
+  result = Network(sizes:sizes,
+                   biases: lc[normalRandomMatrix(sizes[i], 1) | (i <- 1..<len(sizes)), Vector],
+                   weights:lc[normalRandomMatrix(sizes[i], sizes[i-1]) | (i <- 1..<len(sizes)), Matrix])
 
 proc feed_forward*(network: Network, a: Vector): Vector =
   assert(a.dim.columns == 1)
@@ -125,6 +125,5 @@ proc sgd*(network: Network,
       network.update_mini_batch(mini_batch, eta)
     if n_test > 0:
       echo("Epoch $#: $# / $#" % [$(j), $(network.evaluate(test_data)), $(n_test)])
-      #echo network
     else:
       echo("Epoch $# complete" % $(j))
