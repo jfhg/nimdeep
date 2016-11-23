@@ -56,10 +56,9 @@ proc make_network*(sizes: seq[int]): Network =
 
 proc feed_forward*(network: Network, a: Vector): Vector =
   assert(a.dim.columns == 1)
-  var var_a = a
+  result = a
   for layer in zip(network.weights, network.biases):
-    var_a = sigmoid(layer[0] * var_a + layer[1])
-  result = var_a
+    result = sigmoid(layer[0] * result + layer[1])
 
 proc cost_derivative(network: Network, output_activations, y: Vector): Vector =
   (output_activations - y)
@@ -80,12 +79,12 @@ proc backprop(network: Network, x, y: Vector): auto =
   var delta = network.cost_derivative(activations[activations.high], y).hadamard(sigmoid_prime(zs[zs.high]))
   nabla_b[nabla_b.high] = delta
   nabla_w[nabla_w.high] = delta * activations[activations.len() - 2].t
-  for layer in 2..<network.sizes.len():
-    let z = zs[zs.len() - layer]
+  for i in 2..<network.sizes.len():
+    let z = zs[zs.len() - i]
     let sp = sigmoid_prime(z)
-    delta = (network.weights[network.weights.len() - layer + 1].t * delta).hadamard(sp)
-    nabla_b[nabla_b.len() - layer] = delta
-    nabla_w[nabla_w.len() - layer] = delta * activations[activations.len() - layer - 1].t
+    delta = (network.weights[network.weights.len() - i + 1].t * delta).hadamard(sp)
+    nabla_b[nabla_b.len() - i] = delta
+    nabla_w[nabla_w.len() - i] = delta * activations[activations.len() - i - 1].t
   result = (nabla_b, nabla_w)
 
 proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64) =
@@ -94,12 +93,12 @@ proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64
 
   for dat in mini_batch:
     let (delta_nabla_b, delta_nabla_w) = network.backprop(dat.input, dat.expected_result)
-    nabla_b = lc[nb.a + nb.b | (nb <- zip(nabla_b, delta_nabla_b)), Vector]
-    nabla_w = lc[nw.a + nw.b | (nw <- zip(nabla_w, delta_nabla_w)), Matrix]
-  network.biases = lc[b.a - (eta / toFloat(len(mini_batch))) * b.b |
-                      (b <- zip(network.biases, nabla_b)), Vector]
-  network.weights = lc[w.a - (eta / toFloat(len(mini_batch))) * w.b |
-                      (w <- zip(network.weights, nabla_w)), Matrix]
+    for i in 0..nabla_b.high:
+      nabla_b[i] += delta_nabla_b[i]
+      nabla_w[i] += delta_nabla_w[i]
+  for i in 0..network.biases.high:
+    network.biases[i] -= (eta / toFloat(len(mini_batch))) * nabla_b[i]
+    network.weights[i] -= (eta / toFloat(len(mini_batch))) * nabla_w[i]
 
 proc evaluate*(network: Network, test_data: seq[TestData]): int =
   let test_results = lc[(maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i) |
