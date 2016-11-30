@@ -102,11 +102,11 @@ proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64
   let expected_results = makeMatrix(mini_batch[0].expected_result.dim.rows, len(mini_batch),
                  proc(i, j: int): float64 = mini_batch[j].expected_result[i, 0])
 
-  let (delta_nabla_b, delta_nabla_w) = network.backprop_matrix(inputs, expected_results)
+  let (nabla_b, nabla_w) = network.backprop_matrix(inputs, expected_results)
 
   for i in 0..network.biases.high:
-    network.weights[i] -= (eta / toFloat(len(mini_batch))) * delta_nabla_w[i]
-    network.biases[i] -= (eta / toFloat(len(mini_batch))) * delta_nabla_b[i]
+    network.weights[i] -= (eta / toFloat(len(mini_batch))) * nabla_w[i]
+    network.biases[i] -= (eta / toFloat(len(mini_batch))) * nabla_b[i]
 
 proc evaluate*(network: Network, test_data: seq[TestData]): int =
   let test_results = lc[(maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i) |
