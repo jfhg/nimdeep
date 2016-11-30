@@ -33,6 +33,13 @@ proc maxIndex(a: Vector): tuple[i: int, val: float64] =
   assert(a.dim.columns == 1)
   maxIndex(a.column(0))
 
+proc sumColumns(m: Matrix): Matrix =
+  proc addColumns(i:int): float64 =
+    result = 0.0
+    for j in 0..<m.dim.columns:
+      result += m[i, j]
+  result = makeMatrix (m.dim.rows, 1, proc(i, j:int): float64 = addColumns(i))
+
 proc normGauss: float {.inline.} = 1.46 * cos(2*PI*random(1.0)) * sqrt(-2*log10(random(1.0)))
 
 proc normalRandomMatrix(M, N: int): DMatrix64 =
@@ -61,44 +68,45 @@ proc feed_forward*(network: Network, a: Vector): Vector =
     result = sigmoid(layer[0] * result + layer[1])
 
 proc cost_derivative(network: Network, output_activations, y: Vector): Vector =
-  (output_activations - y)
+  output_activations - y
 
-proc backprop(network: Network, x, y: Vector): auto =
+proc backprop_matrix(network: Network, x, y: Matrix): auto =
   var nabla_b = lc[zeros(b.dim.rows, b.dim.columns) | (b <- network.biases), Vector]
   var nabla_w = lc[zeros(w.dim.rows, w.dim.columns) | (w <- network.weights), Matrix]
   var activation = x
   var activations = @[x]
   var zs: seq[Matrix] = @[]
 
-  for layer in zip(network.weights, network.biases):
-    let z = layer[0] * activation + layer[1]
+  for lay in zip(network.weights, network.biases):
+    let bias = makeMatrix(lay[0].dim.rows, activation.dim.columns, proc(i, j:int): float64 = lay[1][i, 0])
+    let z = lay[0] * activation + bias
     zs.add(z)
     activation = sigmoid(z)
     activations.add(activation)
 
   var delta = network.cost_derivative(activations[activations.high], y).hadamard(sigmoid_prime(zs[zs.high]))
-  nabla_b[nabla_b.high] = delta
+
+  nabla_b[nabla_b.high] = sumColumns(delta)
   nabla_w[nabla_w.high] = delta * activations[activations.len() - 2].t
   for i in 2..<network.sizes.len():
     let z = zs[zs.len() - i]
     let sp = sigmoid_prime(z)
     delta = (network.weights[network.weights.len() - i + 1].t * delta).hadamard(sp)
-    nabla_b[nabla_b.len() - i] = delta
+    nabla_b[nabla_b.len() - i] = sumColumns(delta)
     nabla_w[nabla_w.len() - i] = delta * activations[activations.len() - i - 1].t
   result = (nabla_b, nabla_w)
 
 proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64) =
-  var nabla_b = lc[zeros(b.dim.rows, b.dim.columns) | (b <- network.biases), Vector]
-  var nabla_w = lc[zeros(w.dim.rows, w.dim.columns) | (w <- network.weights), Matrix]
+  let inputs = makeMatrix(mini_batch[0].input.dim.rows, len(mini_batch),
+                 proc(i, j: int): float64 = mini_batch[j].input[i, 0])
+  let expected_results = makeMatrix(mini_batch[0].expected_result.dim.rows, len(mini_batch),
+                 proc(i, j: int): float64 = mini_batch[j].expected_result[i, 0])
 
-  for dat in mini_batch:
-    let (delta_nabla_b, delta_nabla_w) = network.backprop(dat.input, dat.expected_result)
-    for i in 0..nabla_b.high:
-      nabla_b[i] += delta_nabla_b[i]
-      nabla_w[i] += delta_nabla_w[i]
+  let (delta_nabla_b, delta_nabla_w) = network.backprop_matrix(inputs, expected_results)
+
   for i in 0..network.biases.high:
-    network.biases[i] -= (eta / toFloat(len(mini_batch))) * nabla_b[i]
-    network.weights[i] -= (eta / toFloat(len(mini_batch))) * nabla_w[i]
+    network.weights[i] -= (eta / toFloat(len(mini_batch))) * delta_nabla_w[i]
+    network.biases[i] -= (eta / toFloat(len(mini_batch))) * delta_nabla_b[i]
 
 proc evaluate*(network: Network, test_data: seq[TestData]): int =
   let test_results = lc[(maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i) |
