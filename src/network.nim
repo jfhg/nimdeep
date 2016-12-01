@@ -89,13 +89,13 @@ proc backprop_matrix(network: Network, x, y: Matrix): auto =
   var delta = network.cost_derivative(activations[activations.high], y).hadamard(sigmoid_prime(zs[zs.high]))
 
   nabla_b[nabla_b.high] = sumColumns(delta)
-  nabla_w[nabla_w.high] = delta * activations[activations.len() - 2].t
+  nabla_w[nabla_w.high] = delta * activations[^2].t
   for i in 2..<network.sizes.len():
-    let z = zs[zs.len() - i]
+    let z = zs[^i]
     let sp = sigmoid_prime(z)
-    delta = (network.weights[network.weights.len() - i + 1].t * delta).hadamard(sp)
-    nabla_b[nabla_b.len() - i] = sumColumns(delta)
-    nabla_w[nabla_w.len() - i] = delta * activations[activations.len() - i - 1].t
+    delta = (network.weights[^(i - 1)].t * delta).hadamard(sp)
+    nabla_b[^i] = sumColumns(delta)
+    nabla_w[^i] = delta * activations[^(i + 1)].t
   result = (nabla_b, nabla_w)
 
 proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64) =
