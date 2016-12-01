@@ -27,6 +27,9 @@ proc `+`(a: Matrix, x: float64): Matrix =
 proc `-`(x: float64, a: Matrix): Matrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x - a[i, j])
 
+proc `-`(a: Matrix): Matrix =
+  makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 =  -a[i, j])
+
 proc maxIndex(a: Vector): tuple[i: int, val: float64] =
   assert(a.dim.columns == 1)
   maxIndex(a.column(0))
@@ -49,7 +52,7 @@ proc shuffle[T](x: var seq[T]) =
     swap(x[i], x[j])
 
 proc sigmoid(z: Matrix): Matrix =
-  result = 1.0 / (exp(z * -1.0) + 1.0)
+  result = 1.0 / (exp(-z) + 1.0)
 
 proc sigmoid_prime(z: Matrix): Matrix =
   sigmoid(z).hadamard(1.0 - sigmoid(z))
