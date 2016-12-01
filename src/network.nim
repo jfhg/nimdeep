@@ -64,8 +64,8 @@ proc make_network*(sizes: seq[int]): Network =
 proc feed_forward*(network: Network, a: Vector): Vector =
   assert(a.dim.columns == 1)
   result = a
-  for layer in zip(network.weights, network.biases):
-    result = sigmoid(layer[0] * result + layer[1])
+  for w, b in zip(network.weights, network.biases).items:
+    result = sigmoid(w * result + b)
 
 proc cost_derivative(network: Network, output_activations, y: Vector): Vector =
   output_activations - y
@@ -77,9 +77,9 @@ proc backprop_matrix(network: Network, x, y: Matrix): auto =
   var activations = @[x]
   var zs: seq[Matrix] = @[]
 
-  for lay in zip(network.weights, network.biases):
-    let bias = makeMatrix(lay[0].dim.rows, activation.dim.columns, proc(i, j:int): float64 = lay[1][i, 0])
-    let z = lay[0] * activation + bias
+  for w, b in zip(network.weights, network.biases).items:
+    let bias = makeMatrix(w.dim.rows, activation.dim.columns, proc(i, j:int): float64 = b[i, 0])
+    let z = w * activation + bias
     zs.add(z)
     activation = sigmoid(z)
     activations.add(activation)
