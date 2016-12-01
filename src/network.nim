@@ -6,21 +6,19 @@ import random
 import system
 import linalg
 
-type Matrix* = DMatrix64
-type Vector* = DMatrix64
-
-type Network = ref object of RootObj
-  sizes : seq[int]
-  biases: seq[Vector]
-  weights: seq[Matrix]
-
-type TestData* = tuple[input, expected_result: Vector]
+type
+  Matrix* = DMatrix64
+  Vector* = DMatrix64
+  TestData* = tuple[input, expected_result: Vector]
+  Network = ref object of RootObj
+    sizes : seq[int]
+    biases: seq[Vector]
+    weights: seq[Matrix]
 
 proc `/`(x: float64, a:Matrix): Matrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x / a[i, j])
 
-proc hadamard(a,b: Matrix): Matrix =
-  assert(a.dim == b.dim)
+proc hadamard(a, b: Matrix): Matrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = a[i, j] * b[i, j])
 
 proc `+`(a: Matrix, x: float64): Matrix =
@@ -71,11 +69,12 @@ proc cost_derivative(network: Network, output_activations, y: Vector): Vector =
   output_activations - y
 
 proc backprop_matrix(network: Network, x, y: Matrix): auto =
-  var nabla_b = lc[zeros(b.dim.rows, b.dim.columns) | (b <- network.biases), Vector]
-  var nabla_w = lc[zeros(w.dim.rows, w.dim.columns) | (w <- network.weights), Matrix]
-  var activation = x
-  var activations = @[x]
-  var zs: seq[Matrix] = @[]
+  var
+    nabla_b = lc[zeros(b.dim.rows, b.dim.columns) | (b <- network.biases), Vector]
+    nabla_w = lc[zeros(w.dim.rows, w.dim.columns) | (w <- network.weights), Matrix]
+    activation = x
+    activations = @[x]
+    zs: seq[Matrix] = @[]
 
   for w, b in zip(network.weights, network.biases).items:
     let bias = makeMatrix(w.dim.rows, activation.dim.columns, proc(i, j:int): float64 = b[i, 0])
