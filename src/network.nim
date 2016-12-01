@@ -86,10 +86,10 @@ proc backprop_matrix(network: Network, x, y: Matrix): auto =
     activation = sigmoid(z)
     activations.add(activation)
 
-  var delta = network.cost_derivative(activations[activations.high], y).hadamard(sigmoid_prime(zs[zs.high]))
+  var delta = network.cost_derivative(activations[^1], y).hadamard(sigmoid_prime(zs[^1]))
 
-  nabla_b[nabla_b.high] = sumColumns(delta)
-  nabla_w[nabla_w.high] = delta * activations[^2].t
+  nabla_b[^1] = sumColumns(delta)
+  nabla_w[^1] = delta * activations[^2].t
   for i in 2..<network.sizes.len():
     let z = zs[^i]
     let sp = sigmoid_prime(z)
