@@ -59,8 +59,8 @@ proc sigmoid_prime(z: Matrix): Matrix =
 
 proc make_network*(sizes: seq[int]): Network =
   result = Network(sizes:sizes,
-                   biases: lc[normalRandomMatrix(sizes[i], 1) | (i <- 1..<len(sizes)), Vector],
-                   weights:lc[normalRandomMatrix(sizes[i], sizes[i-1]) | (i <- 1..<len(sizes)), Matrix])
+                   biases: lc[normalRandomMatrix(sizes[i], 1) | (i <- 1..<sizes.len), Vector],
+                   weights:lc[normalRandomMatrix(sizes[i], sizes[i-1]) | (i <- 1..<sizes.len), Matrix])
 
 proc feed_forward*(network: Network, a: Vector): Vector =
   assert(a.dim.columns == 1)
@@ -90,7 +90,7 @@ proc backprop_matrix(network: Network, x, y: Matrix): auto =
 
   nabla_b[^1] = sumColumns(delta)
   nabla_w[^1] = delta * activations[^2].t
-  for i in 2..<network.sizes.len():
+  for i in 2..<network.sizes.len:
     let z = zs[^i]
     let sp = sigmoid_prime(z)
     delta = (network.weights[^(i - 1)].t * delta) .* sp
@@ -99,16 +99,16 @@ proc backprop_matrix(network: Network, x, y: Matrix): auto =
   result = (nabla_b, nabla_w)
 
 proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64) =
-  let inputs = makeMatrix(mini_batch[0].input.dim.rows, len(mini_batch),
+  let inputs = makeMatrix(mini_batch[0].input.dim.rows, mini_batch.len,
                  proc(i, j: int): float64 = mini_batch[j].input[i, 0])
-  let expected_results = makeMatrix(mini_batch[0].expected_result.dim.rows, len(mini_batch),
+  let expected_results = makeMatrix(mini_batch[0].expected_result.dim.rows, mini_batch.len,
                  proc(i, j: int): float64 = mini_batch[j].expected_result[i, 0])
 
   let (nabla_b, nabla_w) = network.backprop_matrix(inputs, expected_results)
 
   for i in 0..network.biases.high:
-    network.weights[i] -= (eta / toFloat(len(mini_batch))) * nabla_w[i]
-    network.biases[i] -= (eta / toFloat(len(mini_batch))) * nabla_b[i]
+    network.weights[i] -= (eta / toFloat(mini_batch.len)) * nabla_w[i]
+    network.biases[i] -= (eta / toFloat(mini_batch.len)) * nabla_b[i]
 
 proc evaluate*(network: Network, test_data: seq[TestData]): int =
   let test_results = lc[(maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i) |
@@ -121,18 +121,16 @@ proc sgd*(network: Network,
           mini_batch_size: int,
           eta: float64,
           test_data: seq[TestData] = @[]) =
-  let n_test = len(test_data)
-  let n = len(training_data)
   var training_data_var = training_data
 
   for j in 0..<epochs:
     shuffle(training_data_var)
-    let mini_batches = lc[toSeq(training_data_var[k..<(min(k + mini_batch_size, training_data_var.len()))]) |
-                          (k <- countup(0, n - 1, mini_batch_size)),
+    let mini_batches = lc[toSeq(training_data_var[k..<(min(k + mini_batch_size, training_data_var.len))]) |
+                          (k <- countup(0, training_data.len - 1, mini_batch_size)),
                           seq[TestData]]
     for mini_batch in mini_batches:
       network.update_mini_batch(mini_batch, eta)
-    if n_test > 0:
-      echo("Epoch $#: $# / $#" % [$(j), $(network.evaluate(test_data)), $(n_test)])
+    if test_data.len > 0:
+      echo("Epoch $#: $# / $#" % [$(j), $(network.evaluate(test_data)), $(test_data.len)])
     else:
       echo("Epoch $# complete" % $(j))
