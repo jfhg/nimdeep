@@ -18,9 +18,6 @@ type
 proc `/`(x: float64, a:NDMatrix): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x / a[i, j])
 
-proc `.*`(a, b: NDMatrix): NDMatrix =
-  makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = a[i, j] * b[i, j])
-
 proc `+`(a: NDMatrix, x: float64): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x + a[i, j])
 
@@ -55,7 +52,7 @@ proc sigmoid(z: NDMatrix): NDMatrix =
   result = 1.0 / (exp(-z) + 1.0)
 
 proc sigmoid_prime(z: NDMatrix): NDMatrix =
-  sigmoid(z) .* (1.0 - sigmoid(z))
+  sigmoid(z) |*| (1.0 - sigmoid(z))
 
 proc make_network*(sizes: seq[int]): Network =
   let biases = collect(newSeq):
@@ -92,14 +89,14 @@ proc backprop_matrix(network: Network, x, y: NDMatrix): auto =
     activation = sigmoid(z)
     activations.add(activation)
 
-  var delta = network.cost_derivative(activations[^1], y) .* sigmoid_prime(zs[^1])
+  var delta = network.cost_derivative(activations[^1], y) |*| sigmoid_prime(zs[^1])
 
   nabla_b[^1] = sumColumns(delta)
   nabla_w[^1] = delta * activations[^2].t
   for i in 2..<network.sizes.len:
     let z = zs[^i]
     let sp = sigmoid_prime(z)
-    delta = (network.weights[^(i - 1)].t * delta) .* sp
+    delta = (network.weights[^(i - 1)].t * delta) |*| sp
     nabla_b[^i] = sumColumns(delta)
     nabla_w[^i] = delta * activations[^(i + 1)].t
   result = (nabla_b, nabla_w)
