@@ -9,5 +9,5 @@ Installation and Running
  - nimble install linalg
  - download and uncompress the MNIST data files from http://yann.lecun.com/exdb/mnist/ into the data directory
  - cd src
- - nim c --clib:/usr/local/lib/liblapack.so --clib:/usr/local/lib/libblas.so -d:release -d:openblas nimdeep.nim
+ - nim c --define:"blas=openblas" --define:"lapack=openblas"  nimdeep.nim
  - ./nimdeep

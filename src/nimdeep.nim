@@ -1,5 +1,4 @@
 import random
-import linalg
 import mnist_loader
 import network
 

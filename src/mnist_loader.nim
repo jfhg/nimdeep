@@ -1,7 +1,7 @@
 import streams
 import endians
 import sequtils
-import linalg
+import neo
 import network
 
 proc readInt32BE(s: FileStream): int =
@@ -10,7 +10,7 @@ proc readInt32BE(s: FileStream): int =
   bigEndian32(addr tmp, addr r)
   result = tmp
 
-proc load_img_file(img_file: string, max_entries=high(int)): seq[DMatrix64] =
+proc load_img_file(img_file: string, max_entries=high(int)): seq[NDMatrix] =
   var s = newFileStream(img_file, fmRead)
   let magic = s.readInt32BE()
   assert(magic == 2051)
@@ -39,13 +39,13 @@ proc load_label_file(label_file: string, max_entries=high(int)): seq[int] =
   s.close()
 
 proc mnist_load*(img_file, label_file: string, max_entries=high(int)): seq[TestData] =
-  proc vectorize(i: int): DMatrix64 =
+  proc vectorize(i: int): NDMatrix =
     let m = 10
     let n = 1
     result = zeros(m, n)
     result[i, 0] = 1.0
 
-  proc reshape(dat: tuple[a: DMatrix64, b: int]): TestData =
+  proc reshape(dat: tuple[a: NDMatrix, b: int]): TestData =
     result.input = dat.a.reshape(784, 1)
     result.expected_result = vectorize(dat.b)
 

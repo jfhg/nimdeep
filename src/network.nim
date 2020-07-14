@@ -1,66 +1,70 @@
-import future
+import sugar
 import sequtils
 import math
 import strutils
 import random
 import system
-import linalg
+import neo
 
 type
-  Matrix* = DMatrix64
-  Vector* = DMatrix64
+  NDMatrix* = Matrix[float64]
+  Vector* = Matrix[float64]
   TestData* = tuple[input, expected_result: Vector]
   Network = ref object of RootObj
     sizes : seq[int]
     biases: seq[Vector]
-    weights: seq[Matrix]
+    weights: seq[NDMatrix]
 
-proc `/`(x: float64, a:Matrix): Matrix =
+proc `/`(x: float64, a:NDMatrix): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x / a[i, j])
 
-proc `.*`(a, b: Matrix): Matrix =
+proc `.*`(a, b: NDMatrix): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = a[i, j] * b[i, j])
 
-proc `+`(a: Matrix, x: float64): Matrix =
+proc `+`(a: NDMatrix, x: float64): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x + a[i, j])
 
-proc `-`(x: float64, a: Matrix): Matrix =
+proc `-`(x: float64, a: NDMatrix): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 = x - a[i, j])
 
-proc `-`(a: Matrix): Matrix =
+proc `-`(a: NDMatrix): NDMatrix =
   makeMatrix(a.dim.rows, a.dim.columns, proc(i, j: int): float64 =  -a[i, j])
 
 proc maxIndex(a: Vector): tuple[i: int, val: float64] =
   assert(a.dim.columns == 1)
   maxIndex(a.column(0))
 
-proc sumColumns(m: Matrix): Matrix =
+proc sumColumns(m: NDMatrix): NDMatrix =
   proc addColumns(i:int): float64 =
     result = 0.0
     for j in 0..<m.dim.columns:
       result += m[i, j]
-  result = makeMatrix (m.dim.rows, 1, proc(i, j:int): float64 = addColumns(i))
+  result = makeMatrix(m.dim.rows, 1, proc(i, j:int): float64 = addColumns(i))
 
-proc normGauss: float {.inline.} = 1.46 * cos(2*PI*random(1.0)) * sqrt(-2*log10(random(1.0)))
+proc normGauss: float {.inline.} = 1.46 * cos(2*PI*rand(1.0)) * sqrt(-2*log10(rand(1.0)))
 
-proc normalRandomMatrix(M, N: int): DMatrix64 =
+proc normalRandomNDMatrix(M, N: int): NDMatrix =
   makeMatrix(M, N, proc(i, j: int): float64 = normGauss())
 
 proc shuffle[T](x: var seq[T]) =
   for i in countdown(x.high, 0):
-    let j = random(i + 1)
+    let j = rand(i + 1)
     swap(x[i], x[j])
 
-proc sigmoid(z: Matrix): Matrix =
+proc sigmoid(z: NDMatrix): NDMatrix =
   result = 1.0 / (exp(-z) + 1.0)
 
-proc sigmoid_prime(z: Matrix): Matrix =
+proc sigmoid_prime(z: NDMatrix): NDMatrix =
   sigmoid(z) .* (1.0 - sigmoid(z))
 
 proc make_network*(sizes: seq[int]): Network =
+  let biases = collect(newSeq):
+      for i in (1..<sizes.len): normalRandomNDMatrix(sizes[i], 1)
+  let weights = collect(newSeq):
+      for i in (1..<sizes.len): normalRandomNDMatrix(sizes[i], sizes[i-1]) 
   result = Network(sizes:sizes,
-                   biases: lc[normalRandomMatrix(sizes[i], 1) | (i <- 1..<sizes.len), Vector],
-                   weights:lc[normalRandomMatrix(sizes[i], sizes[i-1]) | (i <- 1..<sizes.len), Matrix])
+                   biases:biases,
+                   weights:weights)
 
 proc feed_forward*(network: Network, a: Vector): Vector =
   assert(a.dim.columns == 1)
@@ -71,13 +75,15 @@ proc feed_forward*(network: Network, a: Vector): Vector =
 proc cost_derivative(network: Network, output_activations, y: Vector): Vector =
   output_activations - y
 
-proc backprop_matrix(network: Network, x, y: Matrix): auto =
+proc backprop_matrix(network: Network, x, y: NDMatrix): auto =
   var
-    nabla_b = lc[zeros(b.dim.rows, b.dim.columns) | (b <- network.biases), Vector]
-    nabla_w = lc[zeros(w.dim.rows, w.dim.columns) | (w <- network.weights), Matrix]
+    nabla_b = collect(newSeq):
+        for b in network.biases: zeros(b.dim.rows, b.dim.columns)
+    nabla_w = collect(newSeq):
+        for w in network.weights: zeros(w.dim.rows, w.dim.columns)
     activation = x
     activations = @[x]
-    zs: seq[Matrix] = @[]
+    zs: seq[NDMatrix] = @[]
 
   for w, b in zip(network.weights, network.biases).items:
     let bias = makeMatrix(w.dim.rows, activation.dim.columns, proc(i, j:int): float64 = b[i, 0])
@@ -111,8 +117,8 @@ proc update_mini_batch(network: Network, mini_batch: seq[TestData], eta: float64
     network.biases[i] -= (eta / toFloat(mini_batch.len)) * nabla_b[i]
 
 proc evaluate*(network: Network, test_data: seq[TestData]): int =
-  let test_results = lc[(maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i) |
-                        (dat <- test_data), tuple[res, expected: int]]
+  let test_results = collect(newSeq):
+    for dat in test_data: (maxIndex(network.feed_forward(dat.input)).i, maxIndex(dat.expected_result).i)
   result = len(test_results.filter(proc(r: tuple[res, expected: int]): bool = (r.res == r.expected)))
 
 proc sgd*(network: Network,
@@ -125,9 +131,8 @@ proc sgd*(network: Network,
 
   for j in 0..<epochs:
     shuffle(training_data_var)
-    let mini_batches = lc[toSeq(training_data_var[k..<(min(k + mini_batch_size, training_data_var.len))]) |
-                          (k <- countup(0, training_data.len - 1, mini_batch_size)),
-                          seq[TestData]]
+    let mini_batches = collect(newSeq):
+        for k in countup(0, training_data.len - 1, mini_batch_size): toSeq(training_data_var[k..<(min(k + mini_batch_size, training_data_var.len))])
     for mini_batch in mini_batches:
       network.update_mini_batch(mini_batch, eta)
     if test_data.len > 0:
