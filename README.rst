@@ -6,7 +6,7 @@ The original Python code can be found in https://github.com/mnielsen/neural-netw
 
 Installation and Running
 ------------------------
- - nimble install linalg
+ - nimble install neo
  - download and uncompress the MNIST data files from http://yann.lecun.com/exdb/mnist/ into the data directory
  - cd src
  - nim c --define:"blas=openblas" --define:"lapack=openblas"  nimdeep.nim
